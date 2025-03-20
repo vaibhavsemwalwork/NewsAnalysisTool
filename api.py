@@ -115,7 +115,7 @@ def analyze():
     fin_report = report(company_name, sentiment, sentiment_score, analyzed_articles, topics, comparision, fin_sentiment, audio_file)
 
     
-    return jsonify(fin_report)#, hindi
+    return jsonify(fin_report)
 
 
 

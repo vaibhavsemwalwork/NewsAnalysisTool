@@ -330,6 +330,7 @@ def summarize_article(content, max_length=50, max_input_length=1024):
     return combined_summary
 
 
+# -----------------------------------------------article analysis--------------------------------------------------------------------------- #
 def analyze_articles(articles):
     """
     Analyze a list of articles and generate summaries.
@@ -479,7 +480,7 @@ def translate_text(text, chunk_size=500):
     # Combine the translated chunks
     return " ".join(translated_chunks)
 
-# ---------------------------------------------TTS (speech)----------------------------------------------------------------------- #
+# ---------------------------------------------TTS (speech)------------------------------------------------------------------------- #
 def text_to_speech_gtts(text, language="hi", output_file="Audio/output.mp3"):
     """
     Convert text to Hindi speech using gTTS.
@@ -508,7 +509,7 @@ def text_to_speech_gtts(text, language="hi", output_file="Audio/output.mp3"):
         return None
 
 
-# Final Sentiment
+# ---------------------------------------------Final Sentiment----------------------------------------------------------------------- #
 def final_sentiment(summary):
     # Configure the Gemini API
     genai.configure(api_key=api_key)  # Replace with your actual API key
@@ -533,6 +534,7 @@ def final_sentiment(summary):
     return response_text
 
 
+# -----------------------------------------Plot sentiment distribution--------------------------------------------------------------- #
 def plot_sentiment(report):
     sent = report["Comparative Sentiment Score"]["Sentiment Distribution"]
     sentiments = list(sent.keys())
@@ -553,8 +555,7 @@ def plot_sentiment(report):
     return fig
 
 
-
-# -----------------------------------------------Report--------------------------------------------------------------------------- #
+# --------------------------------------------------Report--------------------------------------------------------------------------- #
 def report(company_name, sentiment, sentiment_score, analyzed_articles, topics, comparision, final_sentiment, audio_file):
 
     output = {
