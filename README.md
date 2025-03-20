@@ -38,4 +38,9 @@ This tool extracts key details from multiple news articles related to a given co
 - Add a checker to verify the company name provided.
 - Add more websites to extract links from. This will help reduce bias that a particular new provider might have.
 - Hindi speech generated sounds artificial and mechanical. With newer, better models speech can be made to sound more human-like.
-- Currently maximum 18 new articles can be extracted, as articles from only first two pages of website are extracted. 
+- Currently maximum 18 new articles can be extracted, as articles from only first two pages of website are extracted.
+
+# Output & UI
+![123](https://github.com/user-attachments/assets/7e873fd0-eda3-4868-8a20-c00422c4dcd4)
+
+
