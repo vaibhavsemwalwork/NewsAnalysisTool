@@ -543,7 +543,8 @@ def plot_sentiment(report):
     percentages = [(count / total) * 100 for count in counts]
 
     # Create a bar plot
-    fig, ax = plt.subplots()
+    plt.figsize
+    fig, ax = plt.subplots(figsize=(8, 6)) 
     ax.bar(sentiments, percentages, color=['red', 'gray', 'green'])
     ax.set_xlabel("Sentiment")
     ax.set_ylabel("Percentage")

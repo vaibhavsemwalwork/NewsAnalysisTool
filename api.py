@@ -78,17 +78,17 @@ def analyze():
 
     # sentiment analysis
     sentiment, sentiment_score = analyze_sentiment(articles)
-    print("\n! Sentiments analysis done. ",len(sentiment))
-    print("\n Sample :",sentiment[0])
+    print("\nSentiments analysis done. ",len(sentiment))
+    print("\nSample :",sentiment[0])
 
     # Analyze articles and generate summaries
     analyzed_articles = analyze_articles(articles)
     print("\nArticle analyzed")
-    print("\n Sample : ",analyzed_articles[0])
+    print("\nSample : ",analyzed_articles[0])
 
     # topic extraction
     topics = topic_of_text(api_key, articles, model_type)
-    print("\nlTpoics Extracted")
+    print("\nTpoics Extracted")
     print("\nSample:", topics[0])
 
     # comparative analysis
