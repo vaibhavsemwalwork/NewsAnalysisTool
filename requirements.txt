@@ -1,0 +1,15 @@
+requests 
+beautifulsoup4 
+pandas
+transformers 
+torch
+textblob
+streamlit
+flask
+selenium
+gTTS
+translate
+webdriver_manager
+flask_cors
+matplotlib
+google.generativeai
