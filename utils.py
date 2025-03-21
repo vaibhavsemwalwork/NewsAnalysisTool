@@ -30,6 +30,12 @@ from translate import Translator
 from gtts import gTTS
 import os
 
+import aiohttp
+import asyncio
+from concurrent.futures import ProcessPoolExecutor
+import logging
+logging.basicConfig(level=logging.INFO)
+
 from config import GEMINI_API_KEY, MODEL_TYPE, n
 api_key = GEMINI_API_KEY
 model_type = MODEL_TYPE
@@ -108,15 +114,15 @@ def scrape(company_name):
 
 
 # --------------------------------------extract title and content from an article link------------------------------------------- #
-def extract_content(article_urls):
-    def extract_article(article_url):
-        try:
-            # Fetch the article page
-            response = requests.get(article_url)
+async def extract_article(session, article_url):
+    try:
+        # Fetch the article page
+        async with session.get(article_url) as response:
             response.raise_for_status()  # Raise an error for bad status codes
 
             # Parse the HTML content using BeautifulSoup
-            soup = BeautifulSoup(response.content, "html.parser")
+            html = await response.text()
+            soup = BeautifulSoup(html, "html.parser")
 
             # Extract the title
             title_element = soup.find("h1")
@@ -126,29 +132,25 @@ def extract_content(article_urls):
             content_elements = soup.find_all("p")  # Assuming content is in <p> tags
             content = "\n".join([p.text.strip() for p in content_elements]) if content_elements else "N/A"
 
-            return {
-                "title": title,
-                "content": content
-            }
-        except Exception as e:
-            print(f"Error extracting article from {article_url}: {e}")
-            return {
-                "title": "N/A",
-                "content": "N/A"
-            }
-    
-    articles = []
-    for link in article_urls:
-        article_data = extract_article(link['link'])
-        articles.append([article_data["title"], article_data["content"]])
-    
-    return articles
+            return [title, content]
+    except Exception as e:
+        print(f"Error extracting article from {article_url}: {e}")
+        return {
+            "title": "N/A",
+            "content": "N/A"
+        }
+
+async def extract_content(article_urls):
+    async with aiohttp.ClientSession() as session:
+        tasks = [extract_article(session, link['link']) for link in article_urls]
+        articles = await asyncio.gather(*tasks)
+        return articles
 
 
 # ------------------------------------------sentiment analysis-------------------------------------------------------------------- #
-def analyze_sentiment(articles):
+async def analyze_sentiment(articles):
     """
-    Perform sentiment analysis on a list of articles.
+    Perform sentiment analysis on a list of articles asynchronously.
     Each article is in the format ["title", "content"].
     Returns a list of dictionaries with sentiment results.
     """
@@ -159,8 +161,8 @@ def analyze_sentiment(articles):
     # Initialize a list to store results
     sentiment_results = []
 
-    # Loop through each article and analyze sentiment
-    for article in articles:
+    # Function to analyze sentiment for a single article
+    def analyze_article(article):
         title, content = article[0], article[1]
         try:
             # Split the content into chunks of <= 512 tokens
@@ -183,91 +185,17 @@ def analyze_sentiment(articles):
             sentiment = "neutral"
             confidence = 0.0
 
-        # Append the results
-        sentiment_results.append({
+        return {
             "title": title,
             "sentiment": sentiment,
             "confidence": confidence
-        })
-    
-    # comprehensive report
-    def sentiment_score(sentiment):
-        positive, negative, neutral = 0, 0, 0
-
-        for i in sentiment:
-            if i['sentiment'] == 'POSITIVE':
-                positive += 1
-            elif i['sentiment'] == 'NEGATIVE':
-                negative += 1
-            else :
-                neutral += 1
-        
-        result = {
-            'POSITIVE' : positive,
-            'NEGATIVE' : negative,
-            'NEUTRAL' : neutral
         }
 
-        return result
-    sentiment_score = sentiment_score(sentiment_results)
+    # Run sentiment analysis for all articles concurrently
+    tasks = [asyncio.to_thread(analyze_article, article) for article in articles]
+    sentiment_results = await asyncio.gather(*tasks)
 
-    return sentiment_results, sentiment_score
-
-
-# def analyze_sentiment(articles):
-    """
-    Perform sentiment analysis on a list of articles using the Gemini Flash 2 API.
-    Each article is in the format ["title", "content"].
-    Returns a list of dictionaries with sentiment results.
-    """
-    # Initialize the Gemini model
-    model = genai.GenerativeModel('gemini-1.5-flash')
-
-    # Initialize a list to store results
-    sentiment_results = []
-
-    # Loop through each article and analyze sentiment
-    for article in articles:
-        title, content = article[0], article[1]
-        try:
-            # Prepare the prompt for sentiment analysis
-            prompt = f"""
-            Analyze the sentiment of the following article content and classify it as POSITIVE, NEGATIVE, or NEUTRAL:
-            
-            Title: {title}
-            Content: {content}
-            
-            Return the sentiment in the following JSON format:
-            {{
-                "sentiment": "POSITIVE/NEGATIVE/NEUTRAL",
-                "confidence": "a score between 0 and 1"
-            }}
-            """
-
-            # Generate the response using Gemini
-            response = model.generate_content(prompt)
-            response_text = response.text
-
-            # Parse the response (assuming it returns valid JSON)
-            import json
-            sentiment_data = json.loads(response_text)
-
-            # Extract sentiment and confidence
-            sentiment = sentiment_data.get("sentiment", "NEUTRAL")
-            confidence = float(sentiment_data.get("confidence", 0.5))
-        except Exception as e:
-            # Handle errors (e.g., if the API call fails or parsing fails)
-            sentiment = "NEUTRAL"
-            confidence = 0.5
-
-        # Append the results
-        sentiment_results.append({
-            "title": title,
-            "sentiment": sentiment,
-            "confidence": confidence
-        })
-
-    # Comprehensive report
+    # Generate comprehensive report
     def sentiment_score(sentiment):
         positive, negative, neutral = 0, 0, 0
 
@@ -287,14 +215,14 @@ def analyze_sentiment(articles):
 
         return result
 
-    sentiment_score = sentiment_score(sentiment_results)
+    sentiment_score_result = sentiment_score(sentiment_results)
 
-    return sentiment_results, sentiment_score
+    return sentiment_results, sentiment_score_result
 
 
 # ------------------------------------------article summary----------------------------------------------------------------------- #
 
-def summarize_article(content, max_length=50, max_input_length=1024):
+# def summarize_article(content, max_length=50, max_input_length=1024):
     """
     Generate a single-line summary of an article using DistilBART.
     
@@ -331,7 +259,7 @@ def summarize_article(content, max_length=50, max_input_length=1024):
 
 
 # -----------------------------------------------article analysis--------------------------------------------------------------------------- #
-def analyze_articles(articles):
+# def analyze_articles(articles):
     """
     Analyze a list of articles and generate summaries.
     Each article is in the format ["title", "content"].
@@ -352,6 +280,115 @@ def analyze_articles(articles):
         })
 
     return results
+
+
+#
+# def summarize_article(content, max_length=50, max_input_length=1024):
+    """
+    Generate a single-line summary of an article using DistilBART.
+    """
+    logging.info("Loading summarizer pipeline...")
+    summarizer = pipeline("summarization", model="sshleifer/distilbart-cnn-12-6")
+
+    chunks = [content[i:i + max_input_length] for i in range(0, len(content), max_input_length)]
+
+    summaries = []
+    for chunk in chunks:
+        try:
+            summary = summarizer(chunk, max_length=max_length, min_length=10, do_sample=False)[0]["summary_text"]
+            summaries.append(summary)
+        except Exception as e:
+            logging.error(f"Error summarizing chunk: {e}")
+            summaries.append("Unable to generate summary for this chunk.")
+
+    combined_summary = " ".join(summaries)
+    return combined_summary
+
+# def process_article(article):
+    """
+    Helper function to process a single article.
+    """
+    title, content = article[0], article[1]
+    summary = summarize_article(content)
+    return {
+        "title": title,
+        "summary": summary
+    }
+
+# def analyze_articles(articles):
+    """
+    Analyze a list of articles and generate summaries.
+    """
+    results = []
+
+    # Limit the number of workers to avoid memory issues
+    max_workers = 2  # Adjust based on your system's capabilities
+    with ProcessPoolExecutor(max_workers=max_workers) as executor:
+        futures = [executor.submit(process_article, article) for article in articles]
+        for future in futures:
+            try:
+                result = future.result()
+                results.append(result)
+            except Exception as e:
+                print(f"Error processing article: {e}")
+        logging.info("Loading summarizer pipeline...")
+    return results
+# this works well with flask as well
+
+
+# Semaphore to limit concurrent tasks to 5
+semaphore = asyncio.Semaphore(5)
+
+async def summarize_article(summarizer, content, max_length=50, max_input_length=1024):
+    """
+    Generate a single-line summary of an article using DistilBART.
+    """
+    
+    chunks = [content[i:i + max_input_length] for i in range(0, len(content), max_input_length)]
+
+    summaries = []
+    for chunk in chunks:
+        try:
+            summary = summarizer(chunk, max_length=max_length, min_length=10, do_sample=False)[0]["summary_text"]
+            summaries.append(summary)
+        except Exception as e:
+            logging.error(f"Error summarizing chunk: {e}")
+            summaries.append("Unable to generate summary for this chunk.")
+
+    combined_summary = " ".join(summaries)
+    return combined_summary
+
+async def analyze_article(summarizer, article):
+    """
+    Analyze a single article and return the result.
+    """
+    
+
+    async with semaphore:  # Limit to 3 concurrent tasks
+        title, content = article[0], article[1]
+
+        # Generate a single-line summary
+        summary = await summarize_article(summarizer, content)
+
+        return {
+            "title": title,
+            "summary": summary
+        }
+
+async def analyze_articles(articles):
+    """
+    Analyze a list of articles and generate summaries concurrently,
+    with at most 3 articles being analyzed at the same time.
+    Each article is in the format ["title", "content"].
+    Returns a list of dictionaries with analysis results.
+    """
+    logging.info("Loading summarizer pipeline...")
+    summarizer = pipeline("summarization", model="sshleifer/distilbart-cnn-12-6")
+
+    tasks = [analyze_article(summarizer, article) for article in articles]
+    results = await asyncio.gather(*tasks)
+    return results
+
 
 
 # ------------------------------------------topic extraction----------------------------------------------------------------------- #
@@ -592,18 +629,20 @@ if __name__ == "__main__":
     print("\nlen of links : ",len(all_links))
 
     # extract content
-    articles = extract_content(all_links[:n])
+    articles = asyncio.run(extract_content(all_links[:n]))
     print("\nlength of articles : ",len(articles))
 
     # sentiment analysis
-    sentiment, sentiment_score = analyze_sentiment(articles)
-    print("\nlen of sentiments : ",len(sentiment))
-    print("\n",sentiment[0])
+    sentiment, sentiment_score = asyncio.run(analyze_sentiment(articles))
+    print("\nLength of sentiments:", len(sentiment))
+    print("\n", sentiment[0])
 
     # Analyze articles and generate summaries
-    analyzed_articles = analyze_articles(articles)
-    print("\nlen of analysis : ",len(analyzed_articles))
-    print("\n",analyzed_articles[0])
+    # analyzed_articles = analyze_articles(articles)
+    analyzed_articles = asyncio.run(analyze_articles(articles))
+    print("\nLength of analyzed articles:", len(analyzed_articles))
+    print("\n", analyzed_articles[0])
+    
 
     # topic extraction
     topics = topic_of_text(api_key, articles, model_type)
@@ -631,5 +670,5 @@ if __name__ == "__main__":
     print("\nfinal_Sentiment :",final_sentiment)
 
     # creating Final report
-    report = report(company_name, sentiment, sentiment_score, analyzed_articles, topics, comparision, final_sentiment, hindi, audio_file)
+    report = report(company_name, sentiment, sentiment_score, analyzed_articles, topics, comparision, final_sentiment, audio_file)
     print("\nreport :",report)
