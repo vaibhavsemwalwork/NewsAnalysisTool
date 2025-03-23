@@ -482,7 +482,7 @@ def report(company_name, sentiment, sentiment_score, analyzed_articles, topics, 
     output = {
         "Company" : company_name,
         "Articles" : [
-            {"Title" : analyzed_articles[i]['title'], "Summary" : analyzed_articles[i]['summary'], "Sentiment" : sentiment[i]['sentiment'], "Topics" : eval(topics[i])}
+            {"Title" : analyzed_articles[i]['title'], "Summary" : analyzed_articles[i]['summary'], "Sentiment" : sentiment[i]['sentiment'], "Topics" : topics[i]}
         for i in range(len(analyzed_articles))],
         "Comparative Sentiment Score" : {
             "Sentiment Distribution": sentiment_score,

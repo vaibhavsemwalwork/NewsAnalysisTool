@@ -10,6 +10,7 @@ import json
 import streamlit as st
 import matplotlib.pyplot as plt
 import matplotlib
+import asyncio
 matplotlib.use('Agg')
 
 # scrape article links
@@ -73,18 +74,19 @@ def analyze():
     all_links = scrape(company_name)
 
     # extract content
-    articles = extract_content(all_links[:n])
-    print("\nNumber of articles : ",len(articles))
+    articles = asyncio.run(extract_content(all_links[:n]))
+    print("\nlength of articles : ",len(articles))
 
     # sentiment analysis
-    sentiment, sentiment_score = analyze_sentiment(articles)
-    print("\nSentiments analysis done. ",len(sentiment))
-    print("\nSample :",sentiment[0])
+    sentiment, sentiment_score = asyncio.run(analyze_sentiment(articles))
+    print("\nLength of sentiments:", len(sentiment))
+    print("\n", sentiment[0])
 
     # Analyze articles and generate summaries
-    analyzed_articles = analyze_articles(articles)
-    print("\nArticle analyzed")
-    print("\nSample : ",analyzed_articles[0])
+    # analyzed_articles = analyze_articles(articles)
+    analyzed_articles = asyncio.run(analyze_articles(articles))
+    print("\nLength of analyzed articles:", len(analyzed_articles))
+    print("\n", analyzed_articles[0])
 
     # topic extraction
     topics = topic_of_text(api_key, articles, model_type)
